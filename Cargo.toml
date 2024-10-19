@@ -6,6 +6,7 @@ license-file = "LICENSE"
 authors = ["sodax <w-sodalite@hotmail.com>"]
 homepage = "https://github.com/w-sodalite/reqwest-lb.git"
 repository = "https://github.com/w-sodalite/reqwest-lb.git"
+description = "The reqwest load balancer middleware"
 
 [dependencies]
 http = { version = "1.1" }
