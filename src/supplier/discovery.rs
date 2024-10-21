@@ -1,5 +1,6 @@
 use crate::discovery::{Change, Discovery};
 use crate::supplier::Supplier;
+use crate::with::With;
 use futures::future::BoxFuture;
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -112,7 +113,7 @@ where
 impl<D> Supplier for DiscoverySupplier<D>
 where
     D: Discovery,
-    D::Key: Send + Sync + 'static,
+    D::Key: Ord + Clone + Send + Sync + 'static,
     D::Element: Clone + Send + Sync + 'static,
 {
     type Element = D::Element;
@@ -127,7 +128,14 @@ where
             if state.load(Ordering::Relaxed) != STATE_INITIALIZED {
                 notify.notified().await;
             }
-            Ok(elements.read().await.values().cloned().collect())
+            let elements = elements
+                .read()
+                .await
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect::<Vec<_>>()
+                .with(|v| v.sort_by(|(k1, _), (k2, _)| k1.cmp(k2)));
+            Ok(elements.into_iter().map(|(_, v)| v).collect())
         })
     }
 }

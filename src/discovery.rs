@@ -6,22 +6,22 @@ use std::{
 
 pub trait Discovery: sealed::Sealed {
     ///
-    /// 节点标志
+    /// element key
     ///
     type Key;
 
     ///
-    /// 节点类型
+    /// element type
     ///
     type Element;
 
     ///
-    /// 错误类型
+    /// poll element change error type
     ///
     type Error;
 
     ///
-    /// 节点变动事件
+    /// poll element change event(s)
     ///
     fn poll_change(
         self: Pin<&mut Self>,
