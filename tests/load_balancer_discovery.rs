@@ -2,7 +2,6 @@ use http::Extensions;
 use reqwest::Url;
 use reqwest_lb::discovery::Change;
 use reqwest_lb::supplier::discovery::DiscoverySupplier;
-use reqwest_lb::supplier::Supplier;
 use reqwest_lb::{LoadBalancer, LoadBalancerPolicy, SimpleLoadBalancer};
 
 #[tokio::test]
@@ -18,8 +17,6 @@ async fn laod_balancer_discovery() {
 
     let discovery = futures::stream::iter(events);
     let supplier = DiscoverySupplier::new(discovery);
-    let elements = supplier.get().await.unwrap();
-    println!("{:?}", elements);
     let load_balancer = SimpleLoadBalancer::new(supplier, LoadBalancerPolicy::RoundRobin);
     let mut extensions = Extensions::new();
     for port in ports {
