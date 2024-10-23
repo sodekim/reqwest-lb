@@ -1,11 +1,22 @@
 # reqwest-lb
 
+[![Crates.io][crates-badge]][crates-url]
+[![Apache licensed][apache-badge]][apache-url]
+[![Build Status][actions-badge]][actions-url]
+
+[crates-badge]: https://img.shields.io/crates/v/reqwest-lb.svg
+[crates-url]: https://crates.io/crates/reqwest-lb
+[apache-badge]: https://img.shields.io/badge/license-Aapche-blue.svg
+[apache-url]: LICENSE
+[actions-badge]: https://github.com/w-sodalite/reqwest-lb/workflows/CI/badge.svg
+[actions-url]: https://github.com/w-sodalite/reqwest-lb/actions?query=workflow%3ARust
+
 A crate for [reqwest](https://crates.io/crates/reqwest) support load balancer, use
 the [reqwest-middleware](https://crates.io/crates/reqwest-middleware).
 
 ## Overview
 
-This crate provide a middleware `LoadBalancerMiddleware`, it implement `reqwest-middleware::Middleware`.
+This crate provide a middleware `LoadBalancerMiddleware`, it implement `reqwest-middleware::Middleware`, then use the `lb://` instead `http://` or `https://`。
 
 - ### dependencies
 
