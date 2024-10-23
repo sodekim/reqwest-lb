@@ -9,7 +9,7 @@
 [apache-badge]: https://img.shields.io/badge/license-Aapche-blue.svg
 [apache-url]: LICENSE
 [actions-badge]: https://github.com/w-sodalite/reqwest-lb/workflows/CI/badge.svg
-[actions-url]: https://github.com/w-sodalite/reqwest-lb/actions?query=workflow%3ARust
+[actions-url]: https://github.com/w-sodalite/reqwest-lb/actions?query=workflow%3ACI
 
 A crate for [reqwest](https://crates.io/crates/reqwest) support load balancer, use
 the [reqwest-middleware](https://crates.io/crates/reqwest-middleware).
