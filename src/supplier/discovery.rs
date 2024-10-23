@@ -125,7 +125,7 @@ where
         let notify = self.notify.clone();
         let elements = self.elements.clone();
         Box::pin(async move {
-            if state.load(Ordering::Relaxed) != STATE_INITIALIZED {
+            if state.load(Ordering::SeqCst) != STATE_INITIALIZED {
                 notify.notified().await;
             }
             let elements = elements
