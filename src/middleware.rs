@@ -7,7 +7,7 @@ use reqwest_middleware::{Middleware, Next};
 use std::convert::Infallible;
 use std::fmt::Debug;
 use thiserror::Error;
-use tracing::{debug, info};
+use tracing::debug;
 
 fn is_lb_schema(schema: &str) -> bool {
     match (schema.get(0..1), schema.get(1..2)) {
