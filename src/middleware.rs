@@ -7,7 +7,7 @@ use reqwest_middleware::{Middleware, Next};
 use std::convert::Infallible;
 use std::fmt::Debug;
 use thiserror::Error;
-use tracing::info;
+use tracing::{debug, info};
 
 fn is_lb_schema(schema: &str) -> bool {
     match (schema.get(0..1), schema.get(1..2)) {
@@ -50,7 +50,7 @@ where
             let old_url = request.url();
             let mut new_url = item.into();
             reconstruct(old_url, &mut new_url);
-            info!("reconstruct new url: {}", new_url.as_str());
+            debug!("reconstruct new url: {}", new_url.as_str());
             *request.url_mut() = new_url;
         }
         next.run(request, extensions).await
