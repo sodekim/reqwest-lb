@@ -13,15 +13,15 @@ http = { version = "1.1" }
 rand = { version = "0.8" }
 tracing = { version = "0.1" }
 futures = { version = "0.3" }
-thiserror = { version = "1.0" }
+thiserror = { version = "2.0" }
 async-trait = { version = "0.1" }
 pin-project-lite = { version = "0.2" }
 reqwest = { version = "0.12" }
-reqwest-middleware = { version = "0.3" }
+reqwest-middleware = { version = "0.4" }
 tokio = { version = "1.40", features = ["sync"] }
 
 [dev-dependencies]
-reqwest-retry = { version = "0.6" }
+reqwest-retry = { version = "0.7" }
 tokio = { version = "1.40", features = ["full"] }
 
 [package.metadata.release]
