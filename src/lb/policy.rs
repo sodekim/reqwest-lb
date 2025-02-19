@@ -3,6 +3,7 @@ use crate::lb::Statistic;
 use crate::with::With;
 use http::Extensions;
 use rand::Rng;
+use std::fmt::{Debug, Formatter};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
@@ -15,6 +16,19 @@ pub enum LoadBalancerPolicy<I> {
     Last,
     Weight(Arc<dyn WeightProvider<I> + Send + Sync>),
     Dynamic(Arc<dyn LoadBalancerPolicyTrait<I> + Send + Sync>),
+}
+
+impl<I> Debug for LoadBalancerPolicy<I> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LoadBalancerPolicy::RoundRobin => f.write_str("RoundRobin"),
+            LoadBalancerPolicy::Random => f.write_str("Random"),
+            LoadBalancerPolicy::First => f.write_str("First"),
+            LoadBalancerPolicy::Last => f.write_str("Last"),
+            LoadBalancerPolicy::Weight(_) => f.write_str("Weight(f)"),
+            LoadBalancerPolicy::Dynamic(_) => f.write_str("Dynamic(f)"),
+        }
+    }
 }
 
 impl<I> Clone for LoadBalancerPolicy<I> {

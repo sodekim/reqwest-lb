@@ -1,4 +1,4 @@
-pub trait With: Sized {
+pub(crate) trait With: Sized {
     fn with<F>(mut self, mut f: F) -> Self
     where
         F: FnMut(&mut Self),

@@ -30,39 +30,42 @@ This crate provide a middleware `LoadBalancerMiddleware`, it implement `reqwest-
 - ### example
 
     ```rust
+
     use reqwest::{Client, Url};
+    use reqwest_lb::supplier::LoadBalancer;
     use reqwest_lb::LoadBalancerMiddleware;
-    use reqwest_lb::SimpleLoadBalancer;
-    use reqwest_lb::{LoadBalancerFactory, LoadBalancerPolicy};
+    use reqwest_lb::LoadBalancerPolicy;
+    use reqwest_lb::LoadBalancerRegistry;
     use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
-  
+
     pub fn create<const N: usize>(
         ports: [u16; N],
         policy: LoadBalancerPolicy<Url>,
     ) -> ClientWithMiddleware {
         // create load balancer factory
-        let mut factory = LoadBalancerFactory::default();
-  
+        let mut registry = LoadBalancerRegistry::default();
+
         // create url list
         let mut urls = Vec::with_capacity(N);
         for port in ports {
             urls.push(Url::parse(format!("http://127.0.0.1:{}", port).as_str()).unwrap());
         }
-  
+
         // create load balancer
-        let load_balancer = SimpleLoadBalancer::new(urls, policy);
-  
+        let load_balancer = LoadBalancer::new(urls, policy);
+
         // register load balancer for the host: example-server
-        factory.add("example-server", load_balancer);
-  
+        registry.add("example-server", load_balancer);
+
         // create reqwest client
-        let middleware = LoadBalancerMiddleware::new(factory);
+        let middleware = LoadBalancerMiddleware::new(registry);
         ClientBuilder::new(Client::builder().no_proxy().build().unwrap())
             .with(middleware)
             .build()
     }
-  
-    pub async fn run() {
+
+    #[tokio::main]
+    async fn main() {
         // use round robin policy
         let client = create([3001, 3002], LoadBalancerPolicy::RoundRobin);
         // http://127.0.0.1:3001
@@ -70,7 +73,63 @@ This crate provide a middleware `LoadBalancerMiddleware`, it implement `reqwest-
         // http://127.0.0.1:3002
         let response = client.get("lb://example-server/").send().await.unwrap();
     }
-  
+
+    ```
+
+- ### discovery
+
+  use `discovery` dynamic control the supplier elements, can send the elements change event `insert`,`remove` or
+  `initialized` to the stream.
+
+    ```rust
+
+    use reqwest::{Client, Url};
+    use reqwest_lb::discovery::Change;
+    use reqwest_lb::supplier::DiscoverySupplier;
+    use reqwest_lb::supplier::LoadBalancer;
+    use reqwest_lb::LoadBalancerMiddleware;
+    use reqwest_lb::LoadBalancerPolicy;
+    use reqwest_lb::LoadBalancerRegistry;
+    use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
+
+    pub fn create<const N: usize>(
+        ports: [u16; N],
+        policy: LoadBalancerPolicy<Url>,
+    ) -> ClientWithMiddleware {
+        // create load balancer factory
+        let mut registry = LoadBalancerRegistry::default();
+        let mut events = ports
+            .iter()
+            .map(|port| {
+                Url::parse(&format!("http://127.0.0.1:{}", port)).map(|url| Change::Insert(*port, url))
+            })
+            .collect::<Vec<_>>();
+
+        // NOTICE: the initialized event notify load balancer all elements already insert
+        events.push(Ok(Change::Initialized));
+
+        let supplier = DiscoverySupplier::new(futures::stream::iter(events));
+        let load_balancer = LoadBalancer::new(supplier, policy);
+
+        registry.add("example-server", load_balancer);
+
+        // create reqwest client
+        let middleware = LoadBalancerMiddleware::new(registry);
+        ClientBuilder::new(Client::builder().no_proxy().build().unwrap())
+            .with(middleware)
+            .build()
+    }
+
+    #[tokio::main]
+    async fn main() {
+        // use round robin policy
+        let client = create([3001, 3002], LoadBalancerPolicy::RoundRobin);
+        // http://127.0.0.1:3001
+        let response = client.get("lb://example-server/").send().await.unwrap();
+        // http://127.0.0.1:3002
+        let response = client.get("lb://example-server/").send().await.unwrap();
+    }
+
     ```
 
 - ### load balancer policy
@@ -80,94 +139,6 @@ This crate provide a middleware `LoadBalancerMiddleware`, it implement `reqwest-
   - First
   - Last
   - Weight
-
-- ### discovery
-
-  use `discovery` dynamic control the supplier elements, can send the elements change event `insert`,`remove` or
-  `initialized` to the stream.
-
-  ```rust
-  
-  use http::Extensions;
-  use reqwest::Url;
-  use reqwest_lb::discovery::Change;
-  use reqwest_lb::supplier::discovery::DiscoverySupplier;
-  use reqwest_lb::{LoadBalancer, LoadBalancerPolicy, SimpleLoadBalancer};
-  
-  #[tokio::test]
-  async fn laod_balancer_discovery() {
-      let ports = (0..10).map(|offset| 3000 + offset).collect::<Vec<_>>();
-      let mut events = ports
-          .iter()
-          .map(|port| {
-              Url::parse(&format!("http://127.0.0.1:{}", port)).map(|url| Change::Insert(*port, url))
-          })
-          .collect::<Vec<_>>();
-      events.push(Ok(Change::Initialized));
-  
-      let discovery = futures::stream::iter(events);
-      let supplier = DiscoverySupplier::new(discovery);
-      let load_balancer = SimpleLoadBalancer::new(supplier, LoadBalancerPolicy::RoundRobin);
-      let mut extensions = Extensions::new();
-      for port in ports {
-          let selected = load_balancer.choose(&mut extensions).await;
-          assert_eq!(
-              selected,
-              Ok(Some(
-                  Url::parse(&format!("http://127.0.0.1:{}", port)).unwrap()
-              ))
-          );
-      }
-  }
-  
-  ```  
-
-- ### with retry
-
-  > the load balancer policy use `RoundRobin`
-
-  ```rust
-  
-  use reqwest::{Client, Url};
-  use reqwest_lb::{
-      LoadBalancerFactory, LoadBalancerMiddleware, LoadBalancerPolicy, SimpleLoadBalancer,
-  };
-  use reqwest_middleware::ClientBuilder;
-  use reqwest_retry::policies::ExponentialBackoff;
-  use reqwest_retry::RetryTransientMiddleware;
-  
-  #[tokio::test]
-  async fn with_retry() {
-      // load balancer middleware
-      let mut factory = LoadBalancerFactory::default();
-      let urls = vec![
-          // error
-          Url::parse("https://www.rust-lang-error.org").unwrap(),
-          // ok
-          Url::parse("https://www.rust-lang.org").unwrap(),
-      ];
-      let load_balancer = SimpleLoadBalancer::new(urls, LoadBalancerPolicy::RoundRobin);
-      factory.add("rust-server", load_balancer);
-      let load_balancer_middleware = LoadBalancerMiddleware::new(factory);
-  
-      // retry middleware
-      let retry_middleware = RetryTransientMiddleware::new_with_policy(
-          ExponentialBackoff::builder().build_with_max_retries(1),
-      );
-  
-      // reqwest client
-      // https://www.rust-lang-error.org => retry error (choose next) => https://www.rust-lang.org
-      let client = ClientBuilder::new(Client::default())
-          .with(retry_middleware)
-          .with(load_balancer_middleware)
-          .build();
-  
-      let response = client.get("lb://rust-server").send().await;
-      assert!(response.is_ok());
-  }
-  
-  
-  ```
 
 ## License
 

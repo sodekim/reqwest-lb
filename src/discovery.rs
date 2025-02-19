@@ -1,4 +1,5 @@
 use futures::Stream;
+use std::fmt::Debug;
 use std::{
     pin::Pin,
     task::{Context, Poll},
@@ -8,7 +9,7 @@ pub trait Discovery: sealed::Sealed {
     ///
     /// element key
     ///
-    type Key;
+    type Key: Debug;
 
     ///
     /// element type
@@ -41,7 +42,7 @@ pub enum Change<K, V> {
     Remove(K),
 
     ///
-    /// discovery load all element finish (first)
+    /// discovery element initialized event
     ///
     Initialized,
 }
@@ -51,6 +52,7 @@ impl<S, K, T, E> sealed::Sealed for S where S: Stream<Item = Result<Change<K, T>
 impl<S, K, T, E> Discovery for S
 where
     S: Stream<Item = Result<Change<K, T>, E>>,
+    K: Debug,
 {
     type Key = K;
 

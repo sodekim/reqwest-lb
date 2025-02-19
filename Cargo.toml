@@ -9,6 +9,8 @@ repository = "https://github.com/w-sodalite/reqwest-lb.git"
 description = "The reqwest load balancer middleware"
 
 [dependencies]
+reqwest = { version = "0.12" }
+reqwest-middleware = { version = ">0.3.0, <0.5.0" }
 http = { version = "1.1" }
 rand = { version = "0.8" }
 tracing = { version = "0.1" }
@@ -16,8 +18,6 @@ futures = { version = "0.3" }
 thiserror = { version = "2.0" }
 async-trait = { version = "0.1" }
 pin-project-lite = { version = "0.2" }
-reqwest = { version = "0.12" }
-reqwest-middleware = { version = "0.4" }
 tokio = { version = "1.40", features = ["sync"] }
 
 [dev-dependencies]

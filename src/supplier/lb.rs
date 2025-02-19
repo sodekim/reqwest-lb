@@ -1,5 +1,6 @@
-use crate::lb::{LoadBalancer, LoadBalancerPolicy, LoadBalancerPolicyTrait, Statistic};
+use crate::lb::{LoadBalancerPolicy, LoadBalancerPolicyTrait, Statistic};
 use crate::supplier::Supplier;
+use crate::LoadBalancerTrait;
 use http::Extensions;
 use pin_project_lite::pin_project;
 use std::future::Future;
@@ -7,13 +8,13 @@ use std::pin::Pin;
 use std::sync::atomic::Ordering;
 use std::task::{ready, Context, Poll};
 
-pub struct SimpleLoadBalancer<S: Supplier> {
+pub struct LoadBalancer<S: Supplier> {
     supplier: S,
     policy: LoadBalancerPolicy<S::Element>,
     statistic: Statistic,
 }
 
-impl<S: Supplier> SimpleLoadBalancer<S> {
+impl<S: Supplier> LoadBalancer<S> {
     pub fn new(supplier: S, policy: LoadBalancerPolicy<S::Element>) -> Self {
         Self {
             supplier,
@@ -23,7 +24,7 @@ impl<S: Supplier> SimpleLoadBalancer<S> {
     }
 }
 
-impl<S> LoadBalancer for SimpleLoadBalancer<S>
+impl<S> LoadBalancerTrait for LoadBalancer<S>
 where
     S: Supplier,
 {

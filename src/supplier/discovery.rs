@@ -83,12 +83,12 @@ where
                     match change {
                         Ok(change) => match change {
                             Change::Insert(k, v) => {
-                                info!("Collector receive insert change!");
+                                info!("Collector receive insert change: key={:?}", k);
                                 let mut items = elements.write().await;
                                 items.insert(k, v);
                             }
                             Change::Remove(k) => {
-                                info!("Collector receive remove change!");
+                                info!("Collector receive remove change: key={:?}", k);
                                 let mut items = elements.write().await;
                                 items.remove(&k);
                             }
