@@ -29,18 +29,30 @@ const STATE_INITIALIZING: u8 = 1;
 ///
 const STATE_INITIALIZED: u8 = 2;
 
+struct Shared<D: Discovery> {
+    state: AtomicU8,
+    elements: RwLock<HashMap<D::Key, D::Element>>,
+    notify: Notify,
+}
+
+impl<D: Discovery> Shared<D> {
+    fn new() -> Shared<D> {
+        Self {
+            state: AtomicU8::new(STATE_NEW),
+            elements: RwLock::new(HashMap::new()),
+            notify: Notify::new(),
+        }
+    }
+}
+
 pub struct DiscoverySupplier<D: Discovery> {
-    state: Arc<AtomicU8>,
-    elements: Arc<RwLock<HashMap<D::Key, D::Element>>>,
-    notify: Arc<Notify>,
+    shared: Arc<Shared<D>>,
 }
 
 impl<D: Discovery> Clone for DiscoverySupplier<D> {
     fn clone(&self) -> Self {
         Self {
-            state: self.state.clone(),
-            elements: self.elements.clone(),
-            notify: self.notify.clone(),
+            shared: self.shared.clone(),
         }
     }
 }
@@ -53,15 +65,9 @@ where
     D::Error: Debug + Send,
 {
     pub fn new(discovery: D) -> Self {
-        let state = Arc::new(AtomicU8::new(STATE_NEW));
-        let elements = Arc::new(RwLock::new(HashMap::new()));
-        let notify = Arc::new(Notify::new());
-        Self::collect(state.clone(), discovery, elements.clone(), notify.clone());
-        Self {
-            state,
-            elements,
-            notify,
-        }
+        let shared = Arc::new(Shared::new());
+        Self::collect(shared.clone(), discovery);
+        Self { shared }
     }
 
     fn try_upgrade_state(state: &AtomicU8, old_state: u8, new_state: u8) -> bool {
@@ -70,13 +76,8 @@ where
             .is_ok()
     }
 
-    fn collect(
-        state: Arc<AtomicU8>,
-        discovery: D,
-        elements: Arc<RwLock<HashMap<D::Key, D::Element>>>,
-        notify: Arc<Notify>,
-    ) {
-        if Self::try_upgrade_state(&state, STATE_NEW, STATE_INITIALIZING) {
+    fn collect(shared: Arc<Shared<D>>, discovery: D) {
+        if Self::try_upgrade_state(&shared.state, STATE_NEW, STATE_INITIALIZING) {
             spawn(async move {
                 let mut discovery = pin!(discovery);
                 while let Some(change) = poll_fn(|cx| discovery.as_mut().poll_change(cx)).await {
@@ -84,21 +85,21 @@ where
                         Ok(change) => match change {
                             Change::Insert(k, v) => {
                                 info!("Collector receive insert change: key={:?}", k);
-                                let mut items = elements.write().await;
+                                let mut items = shared.elements.write().await;
                                 items.insert(k, v);
                             }
                             Change::Remove(k) => {
                                 info!("Collector receive remove change: key={:?}", k);
-                                let mut items = elements.write().await;
+                                let mut items = shared.elements.write().await;
                                 items.remove(&k);
                             }
                             Change::Initialized => {
                                 if Self::try_upgrade_state(
-                                    &state,
+                                    &shared.state,
                                     STATE_INITIALIZING,
                                     STATE_INITIALIZED,
                                 ) {
-                                    notify.notify_waiters()
+                                    shared.notify.notify_waiters()
                                 }
                             }
                         },
@@ -112,7 +113,7 @@ where
 
 impl<D> Supplier for DiscoverySupplier<D>
 where
-    D: Discovery,
+    D: Discovery + 'static,
     D::Key: Ord + Clone + Send + Sync + 'static,
     D::Element: Clone + Send + Sync + 'static,
 {
@@ -121,14 +122,13 @@ where
     type Future = BoxFuture<'static, Result<Vec<Self::Element>, Self::Error>>;
 
     fn get(&self) -> Self::Future {
-        let state = self.state.clone();
-        let notify = self.notify.clone();
-        let elements = self.elements.clone();
+        let shared = self.shared.clone();
         Box::pin(async move {
-            if state.load(Ordering::SeqCst) != STATE_INITIALIZED {
-                notify.notified().await;
+            if shared.state.load(Ordering::SeqCst) != STATE_INITIALIZED {
+                shared.notify.notified().await;
             }
-            let elements = elements
+            let elements = shared
+                .elements
                 .read()
                 .await
                 .iter()
