@@ -25,9 +25,9 @@ reqwest-retry = { version = "0.7" }
 tokio = { version = "1.40", features = ["full"] }
 nacos-sdk = { version = "0.5" }
 url = { version = "2.5" }
-async-stream = { version = "*" }
+async-stream = { version = "0.3" }
 dashmap = { version = "*" }
-tracing-subscriber = { version = "*" }
+tracing-subscriber = { version = "0.3" }
 
 [package.metadata.release]
 registry = "crates-io"
