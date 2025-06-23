@@ -23,6 +23,11 @@ tokio = { version = "1.40", features = ["sync"] }
 [dev-dependencies]
 reqwest-retry = { version = "0.7" }
 tokio = { version = "1.40", features = ["full"] }
+nacos-sdk = { version = "0.5" }
+url = { version = "2.5" }
+async-stream = { version = "*" }
+dashmap = { version = "*" }
+tracing-subscriber = { version = "*" }
 
 [package.metadata.release]
 registry = "crates-io"
