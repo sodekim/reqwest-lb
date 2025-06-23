@@ -24,7 +24,7 @@ This crate provide a middleware `LoadBalancerMiddleware`, it implement `reqwest-
     [dependencies]
     reqwest = "0.12"
     reqwest-middleware = "0.3"
-    reqwest-lb = "0.1"
+    reqwest-lb = "0.3"
     ```
 
 - ### example
