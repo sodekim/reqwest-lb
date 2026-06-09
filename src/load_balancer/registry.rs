@@ -1,4 +1,4 @@
-use crate::lb::BoxLoadBalancer;
+use crate::load_balancer::BoxLoadBalancer;
 use crate::LoadBalancerTrait;
 use std::collections::HashMap;
 use std::convert::Infallible;

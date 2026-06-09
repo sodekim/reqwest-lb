@@ -1,4 +1,4 @@
-use crate::lb::LoadBalancerRegistry;
+use crate::load_balancer::LoadBalancerRegistry;
 use crate::BoxError;
 use async_trait::async_trait;
 use http::Extensions;

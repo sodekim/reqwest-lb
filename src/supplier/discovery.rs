@@ -1,4 +1,5 @@
 use crate::discovery::{Change, Discovery};
+use crate::runtime::Runtime;
 use crate::supplier::Supplier;
 use crate::with::With;
 use futures::future::BoxFuture;
@@ -10,7 +11,6 @@ use std::hash::Hash;
 use std::pin::pin;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
-use tokio::spawn;
 use tokio::sync::{Notify, RwLock};
 use tracing::{error, info};
 
@@ -64,9 +64,9 @@ where
     D::Element: Send + Sync + 'static,
     D::Error: Debug + Send,
 {
-    pub fn new(discovery: D) -> Self {
+    pub fn new<R: Runtime>(discovery: D) -> Self {
         let shared = Arc::new(Shared::new());
-        Self::collect(shared.clone(), discovery);
+        Self::collect::<R>(shared.clone(), discovery);
         Self { shared }
     }
 
@@ -76,9 +76,9 @@ where
             .is_ok()
     }
 
-    fn collect(shared: Arc<Shared<D>>, discovery: D) {
+    fn collect<R: Runtime>(shared: Arc<Shared<D>>, discovery: D) {
         if Self::try_upgrade_state(&shared.state, STATE_NEW, STATE_INITIALIZING) {
-            spawn(async move {
+            R::spawn(async move {
                 let mut discovery = pin!(discovery);
                 while let Some(change) = poll_fn(|cx| discovery.as_mut().poll_change(cx)).await {
                     match change {

@@ -1,9 +1,6 @@
+pub mod discovery;
 pub mod iter;
-mod discovery;
-mod lb;
-
 pub use discovery::*;
-pub use lb::*;
 
 use std::future::Future;
 

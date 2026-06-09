@@ -1,8 +1,8 @@
-use crate::lb::weight::WeightProvider;
-use crate::lb::Statistic;
+use crate::load_balancer::weight::WeightProvider;
+use crate::load_balancer::Statistic;
 use crate::with::With;
 use http::Extensions;
-use rand::Rng;
+use rand::RngExt;
 use std::fmt::{Debug, Formatter};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -72,7 +72,7 @@ impl<I> LoadBalancerPolicyTrait<I> for LoadBalancerPolicy<I> {
                 }
                 None => 0,
             },
-            LoadBalancerPolicy::Random => rand::thread_rng().gen_range(0..len),
+            LoadBalancerPolicy::Random => rand::rng().random_range(0..len),
             LoadBalancerPolicy::First => 0,
             LoadBalancerPolicy::Last => items.len() - 1,
             LoadBalancerPolicy::Weight(f) => {
@@ -88,7 +88,7 @@ impl<I> LoadBalancerPolicyTrait<I> for LoadBalancerPolicy<I> {
                         })
                     })
                     .collect::<Vec<_>>();
-                let index = rand::thread_rng().gen_range(0..indexes.len());
+                let index = rand::rng().random_range(0..indexes.len());
                 indexes[index]
             }
             LoadBalancerPolicy::Dynamic(f) => f.choose(items, extensions),

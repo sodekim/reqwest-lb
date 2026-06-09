@@ -1,11 +1,12 @@
-pub mod discovery;
-pub mod supplier;
-
-mod lb;
+mod load_balancer;
 mod middleware;
 mod with;
 
-pub use lb::*;
+pub mod discovery;
+pub mod runtime;
+pub mod supplier;
+
+pub use load_balancer::*;
 pub use middleware::*;
 
 ///
