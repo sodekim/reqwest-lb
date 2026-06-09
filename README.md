@@ -22,9 +22,9 @@ This crate provide a middleware `LoadBalancerMiddleware`, it implement `reqwest-
 
     ```toml
     [dependencies]
-    reqwest = "0.12"
-    reqwest-middleware = "0.3"
-    reqwest-lb = "0.3"
+    reqwest = "0.13"
+    reqwest-middleware = "0.5"
+    reqwest-lb = "0.4"
     ```
 
 - ### example
@@ -32,7 +32,7 @@ This crate provide a middleware `LoadBalancerMiddleware`, it implement `reqwest-
     ```rust
 
     use reqwest::{Client, Url};
-    use reqwest_lb::supplier::LoadBalancer;
+    use reqwest_lb::LoadBalancer;
     use reqwest_lb::LoadBalancerMiddleware;
     use reqwest_lb::LoadBalancerPolicy;
     use reqwest_lb::LoadBalancerRegistry;
@@ -85,8 +85,9 @@ This crate provide a middleware `LoadBalancerMiddleware`, it implement `reqwest-
 
     use reqwest::{Client, Url};
     use reqwest_lb::discovery::Change;
+    use reqwest_lb::runtime::Tokio;
     use reqwest_lb::supplier::DiscoverySupplier;
-    use reqwest_lb::supplier::LoadBalancer;
+    use reqwest_lb::LoadBalancer;
     use reqwest_lb::LoadBalancerMiddleware;
     use reqwest_lb::LoadBalancerPolicy;
     use reqwest_lb::LoadBalancerRegistry;
@@ -108,7 +109,7 @@ This crate provide a middleware `LoadBalancerMiddleware`, it implement `reqwest-
         // NOTICE: the initialized event notify load balancer all elements already insert
         events.push(Ok(Change::Initialized));
 
-        let supplier = DiscoverySupplier::new(futures::stream::iter(events));
+        let supplier = DiscoverySupplier::new::<Tokio>(futures::stream::iter(events));
         let load_balancer = LoadBalancer::new(supplier, policy);
 
         registry.add("example-server", load_balancer);
