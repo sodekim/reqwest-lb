@@ -1,6 +1,6 @@
 [package]
 name = "reqwest-lb"
-version = "0.4.0"
+version = "0.4.0-dev"
 edition = "2021"
 license-file = "LICENSE"
 authors = ["sodekim <w-sodalite@hotmail.com>"]
