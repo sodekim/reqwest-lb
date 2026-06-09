@@ -1,8 +1,9 @@
 use http::Extensions;
 use reqwest::Url;
 use reqwest_lb::discovery::Change;
-use reqwest_lb::supplier::{DiscoverySupplier, LoadBalancer};
-use reqwest_lb::{LoadBalancerPolicy, LoadBalancerTrait};
+use reqwest_lb::runtime::Tokio;
+use reqwest_lb::supplier::DiscoverySupplier;
+use reqwest_lb::{LoadBalancer, LoadBalancerPolicy, LoadBalancerTrait};
 
 #[tokio::test]
 async fn load_balancer_discovery() {
@@ -17,7 +18,7 @@ async fn load_balancer_discovery() {
     // NOTICE: the initialized event notify load balancer all elements already insert
     events.push(Ok(Change::Initialized));
 
-    let supplier = DiscoverySupplier::new(futures::stream::iter(events));
+    let supplier = DiscoverySupplier::new::<Tokio>(futures::stream::iter(events));
     let load_balancer = LoadBalancer::new(supplier, LoadBalancerPolicy::RoundRobin);
     let mut extensions = Extensions::new();
     for port in ports {

@@ -1,6 +1,5 @@
 use reqwest::{Client, Url};
-use reqwest_lb::supplier::LoadBalancer;
-use reqwest_lb::{LoadBalancerMiddleware, LoadBalancerPolicy, LoadBalancerRegistry};
+use reqwest_lb::{LoadBalancer, LoadBalancerMiddleware, LoadBalancerPolicy, LoadBalancerRegistry};
 use reqwest_middleware::ClientBuilder;
 use reqwest_retry::policies::ExponentialBackoff;
 use reqwest_retry::{Jitter, RetryTransientMiddleware};

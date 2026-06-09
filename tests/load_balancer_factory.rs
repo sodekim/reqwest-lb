@@ -1,4 +1,4 @@
-use reqwest_lb::{supplier::LoadBalancer, LoadBalancerPolicy, LoadBalancerRegistry};
+use reqwest_lb::{LoadBalancer, LoadBalancerPolicy, LoadBalancerRegistry};
 
 #[test]
 fn load_balancer_factory() {

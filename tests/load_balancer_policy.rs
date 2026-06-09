@@ -1,5 +1,5 @@
 use http::Extensions;
-use reqwest_lb::{supplier::LoadBalancer, LoadBalancerPolicy, LoadBalancerTrait};
+use reqwest_lb::{LoadBalancer, LoadBalancerPolicy, LoadBalancerTrait};
 
 const ITEMS: [usize; 10] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
