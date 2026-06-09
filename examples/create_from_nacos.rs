@@ -7,8 +7,9 @@ use nacos_sdk::api::naming::{
 use nacos_sdk::api::props::ClientProps;
 use reqwest::{Client, Url};
 use reqwest_lb::discovery::Change;
-use reqwest_lb::supplier::{DiscoverySupplier, LoadBalancer};
-use reqwest_lb::{LoadBalancerMiddleware, LoadBalancerPolicy, LoadBalancerRegistry};
+use reqwest_lb::runtime::Tokio;
+use reqwest_lb::supplier::DiscoverySupplier;
+use reqwest_lb::{LoadBalancer, LoadBalancerMiddleware, LoadBalancerPolicy, LoadBalancerRegistry};
 use reqwest_middleware::ClientBuilder;
 use std::collections::HashSet;
 use std::convert::Infallible;
@@ -27,9 +28,9 @@ async fn main() {
 
     // create load balancer factory
     let mut registry = LoadBalancerRegistry::default();
-    let discovery = discovery();
+    let discovery = nacos_discovery().await;
     let load_balancer = LoadBalancer::new(
-        DiscoverySupplier::new(discovery),
+        DiscoverySupplier::new::<Tokio>(discovery),
         LoadBalancerPolicy::RoundRobin,
     );
     registry.add("app", load_balancer);
@@ -82,7 +83,7 @@ impl TryInto<Url> for Instance {
     }
 }
 
-fn discovery() -> BoxStream<'static, Result<Change<u64, Instance>, Infallible>> {
+async fn nacos_discovery() -> BoxStream<'static, Result<Change<u64, Instance>, Infallible>> {
     let naming = NamingServiceBuilder::new(
         ClientProps::new()
             .server_addr("127.0.0.1:8848")
@@ -92,6 +93,7 @@ fn discovery() -> BoxStream<'static, Result<Change<u64, Instance>, Infallible>> 
     )
     .enable_auth_plugin_http()
     .build()
+    .await
     .unwrap();
 
     let stream = stream! {

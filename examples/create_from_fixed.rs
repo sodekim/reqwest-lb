@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use reqwest::{Client, Url};
-use reqwest_lb::supplier::LoadBalancer;
+use reqwest_lb::LoadBalancer;
 use reqwest_lb::LoadBalancerMiddleware;
 use reqwest_lb::LoadBalancerPolicy;
 use reqwest_lb::LoadBalancerRegistry;
@@ -42,5 +42,3 @@ async fn main() {
     // http://127.0.0.1:3002
     let response = client.get("lb://example-server/").send().await.unwrap();
 }
-
-
