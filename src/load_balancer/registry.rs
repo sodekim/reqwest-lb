@@ -19,7 +19,6 @@ impl<I, E> LoadBalancerRegistry<I, E> {
     pub fn add<L>(&mut self, host: &str, load_balancer: L)
     where
         L: LoadBalancerTrait<Element = I, Error = E> + Send + Sync + 'static,
-        L::Future: Send + 'static,
     {
         self.registry
             .insert(host.to_string(), load_balancer.boxed());

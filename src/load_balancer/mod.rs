@@ -7,23 +7,15 @@ pub use registry::LoadBalancerRegistry;
 pub use weight::WeightProvider;
 
 use crate::supplier::Supplier;
-use futures::future::BoxFuture;
-use futures::ready;
+use async_trait::async_trait;
 use http::Extensions;
-use pin_project_lite::pin_project;
-use std::future::Future;
-use std::pin::Pin;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
-use std::task::{Context, Poll};
 use std::{fmt::Debug, sync::atomic::Ordering};
 
-pub type BoxLoadBalancer<I, E> = Box<
-    dyn LoadBalancerTrait<Element = I, Error = E, Future = BoxFuture<'static, Result<Option<I>, E>>>
-        + Send
-        + Sync,
->;
+pub type BoxLoadBalancer<I, E> = Box<dyn LoadBalancerTrait<Element = I, Error = E> + Send + Sync>;
 
+#[async_trait]
 pub trait LoadBalancerTrait {
     ///
     /// load balancer element type
@@ -36,14 +28,12 @@ pub trait LoadBalancerTrait {
     type Error;
 
     ///
-    /// load balancer choose element future type
-    ///
-    type Future: Future<Output = Result<Option<Self::Element>, Self::Error>>;
-
-    ///
     /// load balancer choose a effect element
     ///
-    fn choose(&self, extensions: &mut Extensions) -> Self::Future;
+    async fn choose(
+        &self,
+        extensions: &mut Extensions,
+    ) -> Result<Option<Self::Element>, Self::Error>;
 
     ///
     /// Wrap to boxed load balancer
@@ -51,7 +41,6 @@ pub trait LoadBalancerTrait {
     fn boxed(self) -> BoxLoadBalancer<Self::Element, Self::Error>
     where
         Self: Sized + Send + Sync + 'static,
-        Self::Future: Send + 'static,
     {
         Box::new(MapFuture::new(self))
     }
@@ -67,17 +56,19 @@ impl<L> MapFuture<L> {
     }
 }
 
+#[async_trait]
 impl<L> LoadBalancerTrait for MapFuture<L>
 where
-    L: LoadBalancerTrait,
-    L::Future: Send + 'static,
+    L: LoadBalancerTrait + Sync,
 {
     type Element = L::Element;
     type Error = L::Error;
-    type Future = BoxFuture<'static, Result<Option<Self::Element>, Self::Error>>;
 
-    fn choose(&self, extensions: &mut Extensions) -> Self::Future {
-        Box::pin(self.inner.choose(extensions))
+    async fn choose(
+        &self,
+        extensions: &mut Extensions,
+    ) -> Result<Option<Self::Element>, Self::Error> {
+        self.inner.choose(extensions).await
     }
 }
 
@@ -102,60 +93,32 @@ impl<S: Supplier> LoadBalancer<S> {
     }
 }
 
+#[async_trait]
 impl<S> LoadBalancerTrait for LoadBalancer<S>
 where
-    S: Supplier,
+    S: Supplier + Sync,
+    S::Future: Send,
 {
     type Element = S::Element;
     type Error = S::Error;
-    type Future = ChooseFuture<S::Element, S::Future>;
 
-    fn choose(&self, extensions: &mut Extensions) -> Self::Future {
+    async fn choose(
+        &self,
+        extensions: &mut Extensions,
+    ) -> Result<Option<Self::Element>, Self::Error> {
         // touch statistic
         self.statistic.count.fetch_add(1, Ordering::SeqCst);
         extensions.insert(self.statistic.clone());
-        let extensions = extensions.clone();
-        let future = self.supplier.get();
-        let policy = self.policy.clone();
-        ChooseFuture {
-            extensions,
-            policy,
-            future,
-        }
-    }
-}
-
-pin_project! {
-    pub struct ChooseFuture<I, F> {
-        extensions: Extensions,
-        policy: LoadBalancerPolicy<I>,
-        #[pin]
-        future: F,
-    }
-}
-
-impl<I, E, F> Future for ChooseFuture<I, F>
-where
-    F: Future<Output = Result<Vec<I>, E>>,
-{
-    type Output = Result<Option<I>, E>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let project = self.project();
-        match ready!(project.future.poll(cx)) {
-            Ok(mut elements) => {
-                let size = elements.len();
-                Poll::Ready(match size {
-                    0 => Ok(None),
-                    1 => Ok(Some(elements.remove(0))),
-                    _ => {
-                        // use policy choose and return the index
-                        let index = project.policy.choose(&elements, project.extensions);
-                        Ok(Some(elements.remove(index)))
-                    }
-                })
+        let mut elements = self.supplier.get().await?;
+        let size = elements.len();
+        match size {
+            0 => Ok(None),
+            1 => Ok(Some(elements.remove(0))),
+            _ => {
+                // use policy choose and return the index
+                let index = self.policy.choose(&elements, extensions);
+                Ok(Some(elements.remove(index)))
             }
-            Err(e) => Poll::Ready(Err(e)),
         }
     }
 }

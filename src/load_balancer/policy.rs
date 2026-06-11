@@ -49,7 +49,7 @@ impl<I> LoadBalancerPolicy<I> {
         Self::Weight(Arc::new(f))
     }
 
-    pub fn dynamic<F: Fn(&[I], &Extensions) -> usize + Send + Sync + 'static>(f: F) -> Self {
+    pub fn dynamic<F: Fn(&[I], &mut Extensions) -> usize + Send + Sync + 'static>(f: F) -> Self {
         Self::Dynamic(Arc::new(f))
     }
 }
@@ -96,11 +96,11 @@ impl<I> LoadBalancerPolicyTrait<I> for LoadBalancerPolicy<I> {
     }
 }
 
-impl<I, F> sealed::Sealed<I> for F where F: Fn(&[I], &Extensions) -> usize {}
+impl<I, F> sealed::Sealed<I> for F where F: Fn(&[I], &mut Extensions) -> usize {}
 
 impl<I, F> LoadBalancerPolicyTrait<I> for F
 where
-    F: Fn(&[I], &Extensions) -> usize,
+    F: Fn(&[I], &mut Extensions) -> usize,
 {
     fn choose(&self, items: &[I], extensions: &mut Extensions) -> usize {
         self(items, extensions)
