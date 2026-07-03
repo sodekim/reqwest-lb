@@ -48,14 +48,6 @@ async fn last() {
 }
 
 #[tokio::test]
-async fn weight() {
-    choose(LoadBalancerPolicy::weight(|i| *i), |_, selected| {
-        ITEMS.contains(&selected)
-    })
-    .await;
-}
-
-#[tokio::test]
 async fn dynamic() {
     choose(LoadBalancerPolicy::dynamic(|_, _| 0), |_, selected| {
         selected == 0

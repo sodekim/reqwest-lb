@@ -4,11 +4,12 @@ mod weight;
 
 pub use policy::{LoadBalancerPolicy, LoadBalancerPolicyTrait};
 pub use registry::LoadBalancerRegistry;
-pub use weight::WeightProvider;
+pub use weight::{IntoWeighted, Weighted};
 
 use crate::supplier::Supplier;
 use async_trait::async_trait;
 use http::Extensions;
+use std::marker::PhantomData;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 use std::{fmt::Debug, sync::atomic::Ordering};
@@ -77,29 +78,37 @@ pub struct Statistic {
     pub count: Arc<AtomicU64>,
 }
 
-pub struct LoadBalancer<S: Supplier> {
+pub struct LoadBalancer<S: Supplier, T> {
     supplier: S,
-    policy: LoadBalancerPolicy<S::Element>,
+    policy: LoadBalancerPolicy<T>,
     statistic: Statistic,
+    marker: PhantomData<T>,
 }
 
-impl<S: Supplier> LoadBalancer<S> {
-    pub fn new(supplier: S, policy: LoadBalancerPolicy<S::Element>) -> Self {
+impl<S, T> LoadBalancer<S, T>
+where
+    S: Supplier,
+    S::Element: IntoWeighted<T>,
+{
+    pub fn new(supplier: S, policy: LoadBalancerPolicy<T>) -> Self {
         Self {
             supplier,
             policy,
             statistic: Statistic::default(),
+            marker: PhantomData,
         }
     }
 }
 
 #[async_trait]
-impl<S> LoadBalancerTrait for LoadBalancer<S>
+impl<S, T> LoadBalancerTrait for LoadBalancer<S, T>
 where
     S: Supplier + Sync,
     S::Future: Send,
+    S::Element: IntoWeighted<T> + Send,
+    T: Send + Sync,
 {
-    type Element = S::Element;
+    type Element = T;
     type Error = S::Error;
 
     async fn choose(
@@ -107,17 +116,21 @@ where
         extensions: &mut Extensions,
     ) -> Result<Option<Self::Element>, Self::Error> {
         // touch statistic
-        self.statistic.count.fetch_add(1, Ordering::SeqCst);
+        self.statistic.count.fetch_add(1, Ordering::Relaxed);
         extensions.insert(self.statistic.clone());
-        let mut elements = self.supplier.get().await?;
-        let size = elements.len();
-        match size {
+        let mut elements = self
+            .supplier
+            .get()
+            .await?
+            .into_iter()
+            .map(IntoWeighted::into_weighted)
+            .collect::<Vec<Weighted<T>>>();
+        match elements.len() {
             0 => Ok(None),
-            1 => Ok(Some(elements.remove(0))),
+            1 => Ok(Some(elements.remove(0).element)),
             _ => {
-                // use policy choose and return the index
                 let index = self.policy.choose(&elements, extensions);
-                Ok(Some(elements.remove(index)))
+                Ok(Some(elements.remove(index).element))
             }
         }
     }

@@ -1,6 +1,4 @@
-use crate::load_balancer::weight::WeightProvider;
-use crate::load_balancer::Statistic;
-use crate::with::With;
+use crate::load_balancer::{Statistic, Weighted};
 use http::Extensions;
 use rand::RngExt;
 use std::fmt::{Debug, Formatter};
@@ -14,7 +12,6 @@ pub enum LoadBalancerPolicy<I> {
     Random,
     First,
     Last,
-    Weight(Arc<dyn WeightProvider<I> + Send + Sync>),
     Dynamic(Arc<dyn LoadBalancerPolicyTrait<I> + Send + Sync>),
 }
 
@@ -25,7 +22,6 @@ impl<I> Debug for LoadBalancerPolicy<I> {
             LoadBalancerPolicy::Random => f.write_str("Random"),
             LoadBalancerPolicy::First => f.write_str("First"),
             LoadBalancerPolicy::Last => f.write_str("Last"),
-            LoadBalancerPolicy::Weight(_) => f.write_str("Weight(f)"),
             LoadBalancerPolicy::Dynamic(_) => f.write_str("Dynamic(f)"),
         }
     }
@@ -38,72 +34,60 @@ impl<I> Clone for LoadBalancerPolicy<I> {
             LoadBalancerPolicy::Random => LoadBalancerPolicy::Random,
             LoadBalancerPolicy::First => LoadBalancerPolicy::First,
             LoadBalancerPolicy::Last => LoadBalancerPolicy::Last,
-            LoadBalancerPolicy::Weight(f) => LoadBalancerPolicy::Weight(f.clone()),
             LoadBalancerPolicy::Dynamic(f) => LoadBalancerPolicy::Dynamic(f.clone()),
         }
     }
 }
 
 impl<I> LoadBalancerPolicy<I> {
-    pub fn weight<F: Fn(&I) -> usize + Send + Sync + 'static>(f: F) -> Self {
-        Self::Weight(Arc::new(f))
-    }
-
-    pub fn dynamic<F: Fn(&[I], &mut Extensions) -> usize + Send + Sync + 'static>(f: F) -> Self {
+    pub fn dynamic<F: Fn(&[Weighted<I>], &mut Extensions) -> usize + Send + Sync + 'static>(
+        f: F,
+    ) -> Self {
         Self::Dynamic(Arc::new(f))
     }
 }
 
 pub trait LoadBalancerPolicyTrait<I>: sealed::Sealed<I> {
-    fn choose(&self, items: &[I], extensions: &mut Extensions) -> usize;
+    fn choose(&self, elements: &[Weighted<I>], extensions: &mut Extensions) -> usize;
 }
 
 impl<I> sealed::Sealed<I> for LoadBalancerPolicy<I> {}
 
 impl<I> LoadBalancerPolicyTrait<I> for LoadBalancerPolicy<I> {
-    fn choose(&self, items: &[I], extensions: &mut Extensions) -> usize {
-        let len = items.len();
-        assert!(len > 1);
+    fn choose(&self, elements: &[Weighted<I>], extensions: &mut Extensions) -> usize {
         match self {
-            LoadBalancerPolicy::RoundRobin => match extensions.get::<Statistic>() {
-                Some(statistic) => {
-                    let count = statistic.count.load(Ordering::Relaxed).saturating_sub(1);
-                    (count % (len as u64)) as usize
-                }
-                None => 0,
-            },
-            LoadBalancerPolicy::Random => rand::rng().random_range(0..len),
-            LoadBalancerPolicy::First => 0,
-            LoadBalancerPolicy::Last => items.len() - 1,
-            LoadBalancerPolicy::Weight(f) => {
-                let indexes = items
-                    .iter()
-                    .enumerate()
-                    .map(|(index, item)| (index, f.weight(item)))
-                    .flat_map(|(index, len)| {
-                        Vec::with_capacity(len).with(|c| {
-                            for _ in 0..len {
-                                c.push(index);
-                            }
+            LoadBalancerPolicy::Dynamic(f) => f.choose(elements, extensions),
+            policy => {
+                let len = elements
+                    .into_iter()
+                    .map(|element| element.weight)
+                    .sum::<usize>();
+                match policy {
+                    LoadBalancerPolicy::RoundRobin => extensions
+                        .get_mut::<Statistic>()
+                        .map(|statistic| {
+                            (statistic.count.load(Ordering::Relaxed) as usize).saturating_sub(1)
+                                % len
                         })
-                    })
-                    .collect::<Vec<_>>();
-                let index = rand::rng().random_range(0..indexes.len());
-                indexes[index]
+                        .unwrap_or(0),
+                    LoadBalancerPolicy::Random => rand::rng().random_range(0..len),
+                    LoadBalancerPolicy::First => 0,
+                    LoadBalancerPolicy::Last => len - 1,
+                    _ => unreachable!(),
+                }
             }
-            LoadBalancerPolicy::Dynamic(f) => f.choose(items, extensions),
         }
     }
 }
 
-impl<I, F> sealed::Sealed<I> for F where F: Fn(&[I], &mut Extensions) -> usize {}
+impl<I, F> sealed::Sealed<I> for F where F: Fn(&[Weighted<I>], &mut Extensions) -> usize {}
 
 impl<I, F> LoadBalancerPolicyTrait<I> for F
 where
-    F: Fn(&[I], &mut Extensions) -> usize,
+    F: Fn(&[Weighted<I>], &mut Extensions) -> usize,
 {
-    fn choose(&self, items: &[I], extensions: &mut Extensions) -> usize {
-        self(items, extensions)
+    fn choose(&self, elements: &[Weighted<I>], extensions: &mut Extensions) -> usize {
+        self(elements, extensions)
     }
 }
 
