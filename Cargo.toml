@@ -33,6 +33,6 @@ tracing-subscriber = { version = "0.3" }
 registry = "crates-io"
 shared-version = true
 consolidate-commits = true
-pre-release-commit-message = "Release {{version}}"
+pre-release-commit-message = "release: {{version}}"
 tag-name = "v{{version}}"
 allow-branch = ["main"]
