@@ -11,7 +11,6 @@ use async_trait::async_trait;
 use http::Extensions;
 use std::marker::PhantomData;
 use std::sync::atomic::AtomicU64;
-use std::sync::Arc;
 use std::{fmt::Debug, sync::atomic::Ordering};
 
 pub type BoxLoadBalancer<I, E> = Box<dyn LoadBalancerTrait<Element = I, Error = E> + Send + Sync>;
@@ -75,13 +74,13 @@ where
 
 #[derive(Debug, Clone, Default)]
 pub struct Statistic {
-    pub count: Arc<AtomicU64>,
+    pub count: u64,
 }
 
 pub struct LoadBalancer<S: Supplier, T> {
     supplier: S,
     policy: LoadBalancerPolicy<T>,
-    statistic: Statistic,
+    count: AtomicU64,
     marker: PhantomData<T>,
 }
 
@@ -94,7 +93,7 @@ where
         Self {
             supplier,
             policy,
-            statistic: Statistic::default(),
+            count: AtomicU64::new(0),
             marker: PhantomData,
         }
     }
@@ -115,9 +114,9 @@ where
         &self,
         extensions: &mut Extensions,
     ) -> Result<Option<Self::Element>, Self::Error> {
-        // touch statistic
-        self.statistic.count.fetch_add(1, Ordering::Relaxed);
-        extensions.insert(self.statistic.clone());
+        // increment count
+        let count = self.count.fetch_add(1, Ordering::Relaxed);
+        extensions.insert(Statistic { count });
         let mut elements = self
             .supplier
             .get()

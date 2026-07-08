@@ -2,7 +2,6 @@ use crate::load_balancer::{Statistic, Weighted};
 use http::Extensions;
 use rand::RngExt;
 use std::fmt::{Debug, Formatter};
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 #[derive(Default)]
@@ -61,11 +60,8 @@ impl<I> LoadBalancerPolicyTrait<I> for LoadBalancerPolicy<I> {
                 let len = elements.iter().map(|element| element.weight).sum::<usize>();
                 let index = match policy {
                     LoadBalancerPolicy::RoundRobin => extensions
-                        .get_mut::<Statistic>()
-                        .map(|statistic| {
-                            (statistic.count.load(Ordering::Relaxed) as usize).saturating_sub(1)
-                                % len
-                        })
+                        .get::<Statistic>()
+                        .map(|Statistic { count }| (*count as usize) % len)
                         .unwrap_or(0),
                     LoadBalancerPolicy::Random => rand::rng().random_range(0..len),
                     LoadBalancerPolicy::First => 0,
