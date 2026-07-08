@@ -59,7 +59,7 @@ impl<I> LoadBalancerPolicyTrait<I> for LoadBalancerPolicy<I> {
             LoadBalancerPolicy::Dynamic(f) => f.choose(elements, extensions),
             policy => {
                 let len = elements.iter().map(|element| element.weight).sum::<usize>();
-                match policy {
+                let index = match policy {
                     LoadBalancerPolicy::RoundRobin => extensions
                         .get_mut::<Statistic>()
                         .map(|statistic| {
@@ -69,11 +69,25 @@ impl<I> LoadBalancerPolicyTrait<I> for LoadBalancerPolicy<I> {
                         .unwrap_or(0),
                     LoadBalancerPolicy::Random => rand::rng().random_range(0..len),
                     LoadBalancerPolicy::First => 0,
-                    LoadBalancerPolicy::Last => len - 1,
+                    LoadBalancerPolicy::Last => len.saturating_sub(1),
                     LoadBalancerPolicy::Dynamic(_) => unreachable!(),
-                }
+                };
+                LoadBalancerPolicy::index_of(index, elements)
             }
         }
+    }
+}
+
+impl<I> LoadBalancerPolicy<I> {
+    fn index_of(index: usize, elements: &[Weighted<I>]) -> usize {
+        let mut remaining = index;
+        for (index, element) in elements.iter().enumerate() {
+            if remaining < element.weight {
+                return index;
+            }
+            remaining -= element.weight;
+        }
+        elements.len().saturating_sub(1)
     }
 }
 
