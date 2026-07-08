@@ -6,7 +6,7 @@
 
 [crates-badge]: https://img.shields.io/crates/v/reqwest-lb.svg
 [crates-url]: https://crates.io/crates/reqwest-lb
-[apache-badge]: https://img.shields.io/badge/license-Aapche-blue.svg
+[apache-badge]: https://img.shields.io/badge/license-Apache-blue.svg
 [apache-url]: LICENSE
 [actions-badge]: https://github.com/w-sodalite/reqwest-lb/workflows/CI/badge.svg
 [actions-url]: https://github.com/w-sodalite/reqwest-lb/actions?query=workflow%3ACI
@@ -24,7 +24,7 @@ This crate provide a middleware `LoadBalancerMiddleware`, it implement `reqwest-
     [dependencies]
     reqwest = "0.13"
     reqwest-middleware = "0.5"
-    reqwest-lb = "0.4"
+    reqwest-lb = "0.5"
     ```
 
 - ### example
@@ -139,6 +139,19 @@ This crate provide a middleware `LoadBalancerMiddleware`, it implement `reqwest-
   - Random
   - First
   - Last
+  - Dynamic (custom policy via a closure `Fn(&[Weighted<I>], &mut Extensions) -> usize`)
+
+    ```rust
+    use reqwest::Url;
+    use reqwest_lb::LoadBalancerPolicy;
+    use http::Extensions;
+    use reqwest_lb::load_balancer::Weighted;
+
+    let policy = LoadBalancerPolicy::dynamic(|elements: &[Weighted<Url>], _ext: &mut Extensions| {
+        // choose index by weighted elements
+        elements.iter().enumerate().max_by_key(|(_, e)| e.weight).map(|(i, _)| i).unwrap_or(0)
+    });
+    ```
 
 ## License
 
