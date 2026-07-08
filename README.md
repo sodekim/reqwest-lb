@@ -139,7 +139,6 @@ This crate provide a middleware `LoadBalancerMiddleware`, it implement `reqwest-
   - Random
   - First
   - Last
-  - Weight
 
 ## License
 
