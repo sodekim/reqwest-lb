@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
+use std::fmt::{Debug, Display};
+
+#[derive(Debug, Clone)]
 pub struct Weighted<T> {
     pub element: T,
     pub weight: usize,
@@ -10,17 +12,17 @@ impl<T> Weighted<T> {
     }
 }
 
+impl<T: Display> Display for Weighted<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(weight = {})", self.element, self.weight)
+    }
+}
+
 impl<T> std::ops::Deref for Weighted<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
         &self.element
-    }
-}
-
-impl<T: PartialEq> PartialEq<T> for Weighted<T> {
-    fn eq(&self, other: &T) -> bool {
-        &self.element == other
     }
 }
 
